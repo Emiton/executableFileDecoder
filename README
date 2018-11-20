@@ -1,0 +1,14 @@
+The README should:
+– Identifie you and your programming partner by name
+– Identifie your bomb by number
+– Acknowledge help and collaboration
+– Give your informal explanations of Phases 1 through 6
+– Say approximately how many hours you have spent on the assignment
+
+Other files:
+-A defuse file that gives the input lines needed to defuse your bomb (for
+as many phases as you have successfully defused).
+-At your option, a file pictures.pdf containing diagrams that support
+your README file
+-A file phases.c which gives your notion of C code that is equivalent to
+the machine code in Phases 1 through 6
