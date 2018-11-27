@@ -1,0 +1,238 @@
+This is bomb 99.
+
+It belongs to emiton_cameron (emiton_alves@my.uri.edu)
+Group: Emiton Alves and Cameron LaFreniere
+
+We spent about 22 hours working on the project, but also spent many hours
+reading the information given to us. This includes other resources online, the 
+text book, and many more resources in order to familiarize ourselves with assembly.
+
+Thank you to Professor Noah, NYU, Brown University, Justin the TA and Intel for
+all of their help.
+
+**PHASE 1**
+
+Steps to solve:
+First we looked at the objdump and found the function calls within the
+program. Then after finding the function call for phase_1, we noticed that
+ %eax was tested twice after the string_not_equal function. Since %eax is part
+of %rax, we printed some of the characters of %rax and seen a the beginning of
+a phrase. This was one of the phrases that we seen when executing strings bomb.
+We assumed that the input string would be compared to the value in %eax. We
+were seemingly correct.
+
+**PHASE 2**
+
+Steps to solve:
+Just like in phase 1, we first looked at the objdump and found the function
+calls within the program. We noticed that within phase_2 is a function call for
+read_six_numbers. Thus we can assume that there must be six numbers input.
+We knew that our first number would be 0 because the next line after the call
+to read_six_numbers, there is a comparison with %rsp and 0. If rsp is not equal
+to 0, the bomb will blow up. We know that the second number must be a one
+because the next line down is a comparison with %rsp+4 and 1. The jump command
+below will go two lines below, passing explode_bomb, if the the values from the
+comparison are equal. Next, we realized that there was a loop that end would
+end when %rbp == %rbx. During each iteration of the loop, looking at the value
+of %eax would lead us to values 3 through 6 of our passcode. It is clear that
+the passcode is the fibonacci sequence!
+
+** PHASE 3 **
+Our first step after looking at the objdump was to identify the sscanf function
+call within phase_3. We knew that we could print out the format for scanning
+to derive the number and type of values that we would have in our passcode.
+Thus, we knew that our input format must be %d %c %d. It is clear that there
+is a switch statement present, with the first argument to the program being the
+value passed to the switch statement. Since there are only 7 cases in the
+switch statement, the first argument must be less than or equal to 7. We used
+zero, so that we would be in the first case. In this case, there is a compare
+which will lead to an explode_bomb unless 0x14(%rsp) == 0x34, which is 52 in
+decimal. When this comparison is true, the execution will jump to another
+comparison which is %al == 0xf(%rsp). To find the value of 0xf(%rsp) necessary
+for equality, we printed out the value of %al. We converted the hexadecimal to
+a char using an ascii table. It turned out to be 'y'. Obviously, if we had used
+a different switch argument (0 to 7 was acceptable), the values for our second
+and third input arguments would have changed.
+
+** PHASE 4 **
+We used the same mode of attack with sscanf that we used in phase 3. Again,
+since the format for scanning the input is located in %rsi, so we were able to
+print and figure out the number and types of arguments needed for the passcode.
+The printing led us to find out that phase_4 had two %d values. This was also
+obvious based on the compare in the line below sscanf, since the bomb will
+blow up unless %eax == 0x2. Two lines below, there is a comparison
+between $0xe and (%rsp), with a corresponding jbe command, meaning that
+if %rsp isn't less than or equal to 14 the bomb will blow up. Since rsp was
+used without any addition, it is clear that it represents the first input
+argument. Next, func4's arguments are initalized then func4 is called. Func4
+is a recursive function that will take in the user's first input argument, then
+0 and 14. The second and third arguments can slightly alter from 0 and 14 if
+called from func4 itself (recursively). The function will continue until
+%ecx is equal to %edi. Once the function is returned to phase_4, %eax which
+stores the return value is compared with 7. Explode_bomb will be called if they
+are not equal, thus it's clear that func4 must return 7. It is also clear that
+the second input argument must be 7 due to the compare two lines below that
+will lead to explode_bomb being called unless $0x7 == 0x4(%rsp). By setting a
+a breakpoint at cmp $0x7, %eax, and altering our first input value between
+0 and 14 we were able to figure out that 14 was the correct value to input to
+func4 to obtain a return value of 7. Thus, our passcode was 14 7.
+
+
+** PHASE 5 **
+Our first step in phase_5 was to identify that the string_length function was
+called. The comparison immediately following this was comparing %eax to 6. The
+line below is a jump if not equal to statement that will explode_bomb, thus
+we already know that our string length must be six. We noticed that the array
+held within %rsi was extremely important in determining the passcode.
+We printed the values from the array and noticed that the first 16 elements
+were all numbers between 0 and 15. Furthermore, we noticed that the end of the
+loop in phase_5 compared 0x41(65 in decimal) to %ecx. This loop would
+perform bitwise and (using 0xf) on each of the characters in our string
+iteratively.
+We also realized that we needed to use the values in the array to get %ecx
+to equal 65. We converted the indices of the array to hexadecimal and looked
+for those values in an ascii table whose lower four bits matched the
+hexadecimal values found. We used these ascii values as our input string
+and were able to pass the $0x41, %ecx equality comparison.
+
+
+PHASE.C FILE 
+
+// Checks if user input is equal to a phrase
+void phase1(char *input)
+{
+    char *phrase = "Brownie, you are doing a heck of a job.";
+    if(strings_not_equal(input, phrase))
+    {
+        explode_bomb();
+    }
+}
+
+
+
+// Read six numbers and check Fibonocci sequence
+void phase2(char *input)
+{
+    int user_numbers[6];
+    user_numbers = read_six_numbers(input);
+
+    if(user_numbers[0] != 0)
+        explode_bomb;
+
+    if(user_numbers[1] != 1)
+        explode_bomb();
+
+    for(int i = 5; i >= 2; i--)
+    {
+        if(user_numbers[i-2] != (user_numbers[i] - user_numbers[i - 1]))
+            explode_bomb();
+    }
+}
+
+
+// use switch statement to select values
+void phase3(char *input)
+{
+    int num1, num2;
+    char c1;
+    int num_of_values;
+
+    num_of_values = sscanf(input, "%d %c %d", num1, c1, num2);
+
+    if(num_of_values < 2)
+       explode_bomb();
+
+    switch(num1)
+    {
+        case 0:
+            if(num2 == 52)
+                break;
+        case 1:
+            if(num2 =11)
+                break;
+
+        case 2:
+            if(num2 == 83)
+                break;
+
+        case 3:
+            if(num2 == 37)
+                break;
+
+       case 4:
+            if(num2 == 89)
+                break;
+
+       case 5:
+            if(num2 == 12)
+                break;
+       case 6:
+            if(num2 == 45)
+                break;
+
+       case 7:
+            if(num2 == 23)
+                break;
+
+       deafult:
+            explode_bomb();
+    }
+}
+
+
+
+// Recursive helper function
+int funct4(int val1, int val2)
+{
+    int a = val2 -val1;
+    int b = val1 >> 31;
+    val2 = val2 >> 1;
+    b = a + val2;
+    return b;
+}
+
+
+// Call a recursive help function to compute values 
+void phase4(char *input)
+{
+    int num1, num2, num_of_values;
+
+    num_of_values = sscanf(input, "%d %d", num1, num2);
+
+    if(num_of_values < 2)
+        explode_bomb();
+
+    int fValue = funct4(int val1, int val2);
+    if (fValue != 7)
+        explode_bomb():
+
+    if (num2 != 7)
+       explode_bomb();
+}
+
+// comapare input string
+void phase5(char *input)
+{
+    chr phrase[] = "ijkLNO";
+    int length = string_length(input);
+
+    if(length != 6)
+        bomb_explode();
+
+    int indicies[6];
+
+    for(int i = 1; i < 6; i++)
+    {
+        indicies[i] = input[i] && 0xf;
+        if (indicies[i] != phrase[i])
+            explode_bomb();
+    }
+
+
+
+DEFUSE FILE 
+Brownie, you are doing a heck of a job.
+0 1 1 2 3 5
+0 y 52
+14 7
+ijkLNO
